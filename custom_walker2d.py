@@ -2,108 +2,158 @@ import numpy as np
 import gymnasium as gym
 import os
 
-# The observation space is a `Box(-Inf, Inf, (17,), float64)` where the elements are as follows:
-# | Num | Observation                                        | Min  | Max | Name (in corresponding XML file) | Joint | Type (Unit)              |
-# | --- | -------------------------------------------------- | ---- | --- | -------------------------------- | ----- | ------------------------ |
-# | 0   | x-coordinate of the torso                          | -Inf | Inf | rootz                            | slide | position (m)             |
-# | 1   | z-coordinate of the torso (height of Walker2d)     | -Inf | Inf | rootz                            | slide | position (m)             |
-# | 2   | angle of the torso                                 | -Inf | Inf | rooty                            | hinge | angle (rad)              |
-# | 3   | angle of the thigh joint                           | -Inf | Inf | thigh_joint                      | hinge | angle (rad)              |
-# | 4   | angle of the leg joint                             | -Inf | Inf | leg_joint                        | hinge | angle (rad)              |
-# | 5   | angle of the foot joint                            | -Inf | Inf | foot_joint                       | hinge | angle (rad)              |
-# | 6   | angle of the left thigh joint                      | -Inf | Inf | thigh_left_joint                 | hinge | angle (rad)              |
-# | 7   | angle of the left leg joint                        | -Inf | Inf | leg_left_joint                   | hinge | angle (rad)              |
-# | 8   | angle of the left foot joint                       | -Inf | Inf | foot_left_joint                  | hinge | angle (rad)              |
-# | 9   | velocity of the x-coordinate of the torso          | -Inf | Inf | rootx                            | slide | velocity (m/s)           |
-# | 10  | velocity of the z-coordinate (height) of the torso | -Inf | Inf | rootz                            | slide | velocity (m/s)           |
-# | 11  | angular velocity of the angle of the torso         | -Inf | Inf | rooty                            | hinge | angular velocity (rad/s) |
-# | 12  | angular velocity of the thigh hinge                | -Inf | Inf | thigh_joint                      | hinge | angular velocity (rad/s) |
-# | 13  | angular velocity of the leg hinge                  | -Inf | Inf | leg_joint                        | hinge | angular velocity (rad/s) |
-# | 14  | angular velocity of the foot hinge                 | -Inf | Inf | foot_joint                       | hinge | angular velocity (rad/s) |
-# | 15  | angular velocity of the thigh hinge                | -Inf | Inf | thigh_left_joint                 | hinge | angular velocity (rad/s) |
-# | 16  | angular velocity of the leg hinge                  | -Inf | Inf | leg_left_joint                   | hinge | angular velocity (rad/s) |
-# | 17  | angular velocity of the foot hinge                 | -Inf | Inf | foot_left_joint                  | hinge | angular velocity (rad/s) |
-
-# The action space is a `Box(-1, 1, (6,), float32)`. An action represents the torques applied at the hinge joints.
-# | Num | Action                                 | Control Min | Control Max | Name (in corresponding XML file) | Joint | Type (Unit)  |
-# |-----|----------------------------------------|-------------|-------------|----------------------------------|-------|--------------|
-# | 0   | Torque applied on the thigh rotor      | -1          | 1           | thigh_joint                      | hinge | torque (N m) |
-# | 1   | Torque applied on the leg rotor        | -1          | 1           | leg_joint                        | hinge | torque (N m) |
-# | 2   | Torque applied on the foot rotor       | -1          | 1           | foot_joint                       | hinge | torque (N m) |
-# | 3   | Torque applied on the left thigh rotor | -1          | 1           | thigh_left_joint                 | hinge | torque (N m) |
-# | 4   | Torque applied on the left leg rotor   | -1          | 1           | leg_left_joint                   | hinge | torque (N m) |
-# | 5   | Torque applied on the left foot rotor  | -1          | 1           | foot_left_joint                  | hinge | torque (N m) |
-
 class CustomEnvWrapper(gym.Wrapper):
-    def __init__(self, render_mode="human", bump_practice=False, bump_challenge=False):
+    """
+    Walker2d 환경에 bump 장애물 통과를 위한 커스텀 관측 및 보상 로직을 추가하는 래퍼입니다.
+    - Observation: [기존 obs(17)] + [dx, h, w] (거리, 높이, 폭)
+    - Reward: 단계별 보상 쉐이핑 (준비 -> 점프 -> 성공)
+    """
+
+    def __init__(self, render_mode=None, bump_practice=False, bump_challenge=False):
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        asset_dir = os.path.join(repo_root, "asset")
+
         if bump_challenge:
-            env = gym.make(
-                "Walker2d-v5",
-                xml_file=os.getcwd() + "/asset/custom_walker2d_bumps.xml",
-                render_mode=render_mode,
-                exclude_current_positions_from_observation=False,
-                frame_skip = 10,
-                healthy_z_range=(0.5, 10.0))
+            xml_file = os.path.join(asset_dir, "custom_walker2d_bumps.xml")
         elif bump_practice:
-            env = gym.make(
-                "Walker2d-v5",
-                xml_file=os.getcwd() + "/asset/custom_walker2d_bumps_practice.xml",
-                render_mode=render_mode,
-                exclude_current_positions_from_observation=False,
-                frame_skip = 10,
-                healthy_z_range=(0.5, 10.0))
+            practice_xml_path = os.path.join(asset_dir, "custom_walker2d_bumps_practice.xml")
+            xml_file = practice_xml_path if os.path.exists(practice_xml_path) else os.path.join(asset_dir, "custom_walker2d_bumps.xml")
         else:
-            env = gym.make(
-                "Walker2d-v5",
-                render_mode=render_mode,
-                exclude_current_positions_from_observation=False,
-                frame_skip = 10)
-        
+            xml_file = None
+
+        env = gym.make(
+            "Walker2d-v5",
+            xml_file=xml_file,
+            render_mode=render_mode,
+            exclude_current_positions_from_observation=False,
+            frame_skip=10,
+            healthy_z_range=(0.5, 10.0),
+        )
         super().__init__(env)
 
-        self.bump_practice = bump_practice
-        self.bump_challenge = bump_challenge
-        
-        ## change observation space according to the new observation
-        obs, _ = self.reset()
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(len(obs),), dtype=np.float64)
-        
+        base_env = env.unwrapped
+        base_model = base_env.model
+        self.bump_geom_ids = [
+            i for i in range(base_model.ngeom)
+            if base_model.geom(i).name and base_model.geom(i).name.startswith("bump")
+        ]
+
+        self.cleared_bumps_count = 0
+        self.current_bump_target_x = np.inf
+
+        # --- Observation Space 수정 ---
+        # 기존 17 + dx, h, w = 20
+        sample_obs, _ = self.reset()
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=sample_obs.shape, dtype=np.float64
+        )
+
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
-        custom_obs = self.custom_observation(obs)
-        return custom_obs, info
+        self.cleared_bumps_count = 0
+        self.current_bump_target_x = self._next_bump_info()[3] # bump_x_pos 인덱스 변경
+        return self.custom_observation(obs), info
 
     def step(self, action):
-        obs, reward, terminated, truncated, info = self.env.step(action)
+        obs, _, terminated, truncated, info = self.env.step(action)
+        
         custom_obs = self.custom_observation(obs)
-        custom_reward = self.custom_reward(obs, reward)
-        custom_terminated = self.custom_terminated(terminated, obs)
-        custom_truncated = self.custom_truncated(truncated)
-        return custom_obs, custom_reward, custom_terminated, custom_truncated, info
+        custom_reward, success_bonus = self._calculate_rewards(obs, custom_obs, action)
+        
+        info['cleared_bumps'] = self.cleared_bumps_count
+        if success_bonus > 0:
+            info['event'] = 'BUMP_CLEARED'
+            
+        return custom_obs, custom_reward, terminated, truncated, info
 
-    def custom_terminated(self, terminated, obs):
-        # TODO: Implement your own termination condition
-        return terminated
-    
-    def custom_truncated(self, truncated):
-        # TODO: Implement your own truncation condition
-        return truncated
+    def _next_bump_info(self):
+        """
+        다음 bump의 정보를 반환합니다. (폭 정보 추가)
+        
+        Returns:
+            (dx, h, w, bump_x_pos):
+            - dx: x축 거리
+            - h: 절반 높이
+            - w: 절반 폭 (size[0])
+            - bump_x_pos: 절대 x좌표
+        """
+        base_env = self.unwrapped
+        data, model = base_env.data, base_env.model
+
+        walker_x = data.qpos[0]
+        min_dx, height, width, bump_x_pos = np.inf, 0.0, 0.0, np.inf
+
+        for gid in self.bump_geom_ids:
+            current_bump_x_pos = data.geom_xpos[gid][0]
+            dx = current_bump_x_pos - walker_x
+            if dx >= 0.0 and dx < min_dx:
+                min_dx = dx
+                # size[0]은 x축 방향의 절반 폭, size[2]는 z축 방향의 절반 높이
+                width = model.geom_size[gid][0] 
+                height = model.geom_size[gid][2]
+                bump_x_pos = current_bump_x_pos
+        
+        if np.isinf(min_dx):
+            return -1.0, 0.0, 0.0, -1.0
+            
+        return min_dx, height, width, bump_x_pos
 
     def custom_observation(self, obs):
-        # TODO: Implement your own observation
-        return obs
+        """관측에 다음 bump의 거리, 높이, 폭 정보를 추가합니다."""
+        dx, h, w, _ = self._next_bump_info()
+        return np.concatenate([obs, np.array([dx, h, w], dtype=np.float64)])
+        
+    def _calculate_rewards(self, obs, custom_obs, action):
+        # 하이퍼파라미터 (튜닝 필요)
+        W_FORWARD = 1.5
+        W_ALIVE = 0.1
+        W_CTRL = -0.01
+        W_STABILITY = -0.05
+        PREP_DIST = 2.5
+        JUMP_DIST = 0.8
+        W_CROUCH = 4.0
+        Z_CROUCH_TARGET = 0.9
+        CROUCH_SIGMA = 0.1
+        W_CLEARANCE = 20.0
+        CLEARANCE_MARGIN = 0.1
+        W_JUMP = 2.5
+        SUCCESS_BONUS = 50.0
+        
+        # 관측값 분해 (인덱스 변경에 주의)
+        z_torso = obs[1]
+        vel_x = obs[9]
+        vel_z = obs[10]
+        angvel_torso = obs[11]
+        dx, h, w = custom_obs[17], custom_obs[18], custom_obs[19] # obs 20개
+        
+        # 보상 계산 로직은 이전과 동일하게 사용 가능
+        forward_reward = W_FORWARD * vel_x
+        alive_bonus = W_ALIVE
+        control_cost = W_CTRL * np.sum(np.square(action))
+        stability_penalty = W_STABILITY * np.square(angvel_torso)
+        base_reward = forward_reward + alive_bonus + control_cost + stability_penalty
+        
+        shaping_reward = 0.0
+        if dx >= 0:
+            if JUMP_DIST < dx <= PREP_DIST:
+                crouch_reward = W_CROUCH * np.exp(-((z_torso - Z_CROUCH_TARGET)**2) / (2 * CROUCH_SIGMA**2))
+                shaping_reward += crouch_reward
+            
+            elif 0 <= dx <= JUMP_DIST:
+                clearance_target = h * 2 + CLEARANCE_MARGIN
+                clearance_reward = W_CLEARANCE * max(0, z_torso - clearance_target)
+                jump_reward = W_JUMP * vel_z
+                shaping_reward += clearance_reward + jump_reward
+                
+        success_bonus = 0.0
+        _, _, _, next_bump_x = self._next_bump_info()
+        
+        if self.current_bump_target_x > 0 and self.current_bump_target_x != next_bump_x:
+            success_bonus = SUCCESS_BONUS
+            self.cleared_bumps_count += 1
+            
+        self.current_bump_target_x = next_bump_x
 
-    def custom_reward(self, obs, original_reward):
-        # TODO: Implement your own reward
-        return original_reward
+        total_reward = base_reward + shaping_reward + success_bonus
+        return total_reward, success_bonus
 
-## Test Rendering
-if __name__ == "__main__":
-    env = CustomEnvWrapper()
-    obs = env.reset()
-    for _ in range(1000):
-        action = env.action_space.sample()
-        obs, reward, terminated, truncated, info = env.step(action)
-        env.render()
-        if terminated:
-            obs = env.reset()
