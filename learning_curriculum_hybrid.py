@@ -44,7 +44,7 @@ def transfer_weights(pretrained_params, new_model_params):
     return new_model_params
 
 if __name__ == "__main__":
-    N_ENVS = 8
+    N_ENVS = 12
     LOG_INTERVAL = 1
     
     parser = argparse.ArgumentParser(description="Hybrid Curriculum Learning for Walker2D")

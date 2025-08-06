@@ -100,10 +100,10 @@ class CustomEnvWrapper(gym.Wrapper):
         is_over_bump = (bump1_dx >= -bump1_w) and (bump1_dx <= bump1_w)
 
         # --- 1. 기반 보상 (모든 단계 공통) ---
-        W_FORWARD, W_ALIVE, W_CTRL, W_FALL_PENALTY = 1.5, 0.1, -0.01, -50.0
+        W_FORWARD, W_ALIVE, W_CTRL, W_FALL_PENALTY = 2.0, 0.1, -0.01, -50.0
         # ==================== 수정된 부분 ====================
         # 안정성 페널티를 기반 보상에 포함시켜 모든 레벨에 적용합니다.
-        W_STABILITY_PENALTY = -0.1 
+        W_STABILITY_PENALTY = -0.02
         
         reward_forward = W_FORWARD * vel_x
         reward_alive = W_ALIVE        
