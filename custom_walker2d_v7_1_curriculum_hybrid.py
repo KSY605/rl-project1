@@ -101,14 +101,18 @@ class CustomEnvWrapper(gym.Wrapper):
 
         # --- 1. 기반 보상 (모든 단계 공통) ---
         W_FORWARD, W_ALIVE, W_CTRL, W_FALL_PENALTY = 1.5, 0.1, -0.01, -50.0
+        # ==================== 수정된 부분 ====================
+        # 안정성 페널티를 기반 보상에 포함시켜 모든 레벨에 적용합니다.
+        W_STABILITY_PENALTY = -0.1 
         
         reward_forward = W_FORWARD * vel_x
-        reward_alive = W_ALIVE
+        reward_alive = W_ALIVE        
         penalty_control = W_CTRL * np.sum(np.square(action))
-        penalty_fall = W_FALL_PENALTY if z_torso < 0.7 else 0.0
-        
-        base_reward = reward_forward + reward_alive + penalty_control + penalty_fall
-        
+        penalty_stability = W_STABILITY_PENALTY * np.square(angvel_torso) # 몸이 크게 기울어지면 페널티
+        penalty_fall = W_FALL_PENALTY if z_torso < 0.7 else 0.0        
+        base_reward = reward_forward + reward_alive + penalty_control + penalty_stability + penalty_fall
+        # ====================================================
+
         # --- 2. 단계별 추가 보상 ---
         reward_clearance = 0.0
         reward_stability = 0.0
