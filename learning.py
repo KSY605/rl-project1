@@ -11,7 +11,7 @@ from stable_baselines3.common.utils import get_device
 # custom_walker2d.py가 있는 디렉토리를 파이썬 경로에 추가합니다.
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # 폭(width) 정보까지 포함된 최신 버전의 환경을 사용합니다.
-from custom_walker2d_v3 import CustomEnvWrapper 
+from custom_walker2d_v4 import CustomEnvWrapper 
 
 def make_env(bump_challenge=True, rank=0, seed=0):
     """
