@@ -96,7 +96,7 @@ class CurriculumManager:
     def promote(self):
         if self.current_level < len(self.levels) - 1:
             self.current_level += 1
-            print(f"\n🎉🎉🎉 축하합니다! 레벨 {self.current_level}로 승급했습니다! 🎉🎉🎉")
+            print(f"\n�🎉🎉 축하합니다! 레벨 {self.current_level}로 승급했습니다! 🎉🎉🎉")
             print(f"이제 {len(self.get_current_level_bumps())}개의 장애물에 도전합니다.")
             return True
         else:
@@ -177,9 +177,34 @@ class CurriculumWalkerEnv(gym.Wrapper):
     def _get_full_observation(self, base_obs):
         """기본 관찰값과 장애물 관찰값을 결합합니다."""
         return np.concatenate([base_obs, self._get_bump_observation()])
+    
+    # ==================================================================
+    # ===== ✨ 여기에 custom_reward 함수를 추가하고 수정했습니다. ✨ =====
+    # ==================================================================
+    def custom_reward(self, obs, original_reward):
+        """
+        참고용2 파일에서 가져온 커스텀 보상 함수.
+        특정 전진 속도를 유지하고, 몸통 높이를 유지하도록 장려합니다.
+        """
+        target_x_velocity = 2.0
+        
+        # obs[9]: x축 방향 속도 (velocity of the x-coordinate of the torso)
+        # obs[1]: z축 높이 (z-coordinate of the torso)
+        forward_velocity_reward = np.exp(-np.abs(obs[9] - target_x_velocity))
+        height_reward = (obs[1] - 0.5)
+        
+        # 참고 코드에서는 원래 보상을 완전히 대체했습니다.
+        # 여기서는 속도 보상과 높이 보상을 합산하여 새로운 보상으로 사용합니다.
+        reward = forward_velocity_reward + height_reward
+        return reward
 
     def step(self, action):
-        base_obs, reward, terminated, truncated, info = self.env.step(action)
+        # 1. 기본 환경에서 한 스텝 진행하여 원래 보상을 얻습니다.
+        base_obs, original_reward, terminated, truncated, info = self.env.step(action)
+        
+        # 2. ✨ 커스텀 보상 함수를 호출하여 보상을 새로 계산합니다. ✨
+        reward = self.custom_reward(base_obs, original_reward)
+        
         x_pos = self.unwrapped.data.qpos[0]
         
         # 통과한 장애물 기록
@@ -193,12 +218,14 @@ class CurriculumWalkerEnv(gym.Wrapper):
         # 현재 레벨의 모든 장애물을 통과했는지 확인
         if info['total_bumps_in_level'] > 0 and info['passed_bumps_count'] == info['total_bumps_in_level']:
             info['cleared_all_bumps'] = True
-            reward += 100  # 큰 보상
+            reward += 100  # 큰 보상 (커스텀 보상에 추가)
             terminated = True # 에피소드 성공적으로 종료
         else:
             info['cleared_all_bumps'] = False
             
+        # 3. 최종 관찰값과 새로 계산된 보상을 반환합니다.
         return self._get_full_observation(base_obs), reward, terminated, truncated, info
+    # ==================================================================
 
     def reset(self, **kwargs):
         self.passed_bumps.clear()
