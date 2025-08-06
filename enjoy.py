@@ -5,7 +5,7 @@ from stable_baselines3 import PPO
 
 # custom_walker2d.py가 있는 디렉토리를 파이썬 경로에 추가합니다.
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from custom_walker2d_v4 import CustomEnvWrapper 
+from custom_walker2d_v7 import CustomEnvWrapper 
 
 def main():
     parser = argparse.ArgumentParser(description="학습된 Walker2D 모델을 렌더링합니다.")
