@@ -44,7 +44,7 @@ def transfer_weights(pretrained_params, new_model_params):
     return new_model_params
 
 if __name__ == "__main__":
-    N_ENVS = 12
+    N_ENVS = 8
     LOG_INTERVAL = 1
     
     parser = argparse.ArgumentParser(description="Hybrid Curriculum Learning for Walker2D")
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     else:
         folder_name = "walker_default"
         
-    log_dir = f"./logs/{folder_name}/"
+    log_dir = f"./logs/{folder_name}_1/"
     save_path = f'./checkpoints/{folder_name}/'
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(save_path, exist_ok=True)
