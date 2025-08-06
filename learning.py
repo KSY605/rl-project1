@@ -11,7 +11,7 @@ from stable_baselines3.common.utils import get_device
 # custom_walker2d.py가 있는 디렉토리를 파이썬 경로에 추가합니다.
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # 폭(width) 정보까지 포함된 최신 버전의 환경을 사용합니다.
-from custom_walker2d_v4_1 import CustomEnvWrapper 
+from custom_walker2d_v7_1 import CustomEnvWrapper 
 
 def make_env(bump_challenge=True, rank=0, seed=0):
     """
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     parser.add_argument("--pretrained-model", type=str, required=True, help="잘 걷는 pre-trained 모델의 경로. (예: ./models/walker_flat.zip)")
     args = parser.parse_args()
 
-    folder_name = "walker_finetuned_v4_1"
+    folder_name = "walker_finetuned_v7_1_1"
     log_dir = f"./logs/{folder_name}/"
     save_path = f'./checkpoints/{folder_name}/'
     os.makedirs(log_dir, exist_ok=True)
@@ -103,6 +103,7 @@ if __name__ == "__main__":
         batch_size=64,
         gamma=0.99,
         gae_lambda=0.95,
+        ent_coef=0.005,
     )
     
     print(f"\nLoading weights from pre-trained model: {args.pretrained_model}\n")

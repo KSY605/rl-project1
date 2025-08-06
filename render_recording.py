@@ -7,7 +7,7 @@ from stable_baselines3 import PPO
 # custom_walker2d.py가 있는 디렉토리를 파이썬 경로에 추가합니다.
 # Add the directory containing custom_walker2d.py to the Python path.
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from custom_walker2d_v2 import CustomEnvWrapper 
+from custom_walker2d_v4 import CustomEnvWrapper 
 
 def main():
     """
