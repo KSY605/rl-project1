@@ -235,10 +235,10 @@ def main(args):
     # --- 설정 ---
     XML_PATH = 'custom_walker2d_bumps_v2.xml'
     LEVEL_THRESHOLDS = [0.15, 0.3, 0.5, 0.8, 1.3] 
-    TOTAL_TIMESTEPS = 2_000_000
+    TOTAL_TIMESTEPS = 2_000_000_000
     EVAL_EPISODES = 100
     PROMOTION_THRESHOLD = 0.95
-    LEARNING_STEPS_PER_EVAL = 50_000
+    LEARNING_STEPS_PER_EVAL = 100_000
     
     # --- 초기화 ---
     CHECKPOINT_DIR = "checkpoints"
