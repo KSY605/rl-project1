@@ -102,37 +102,58 @@ class CustomEnvWrapper(gym.Wrapper):
         """관측에 다음 bump의 거리, 높이, 폭 정보를 추가합니다."""
         dx, h, w, _ = self._next_bump_info()
         return np.concatenate([obs, np.array([dx, h, w], dtype=np.float64)])
-        
+    
     def _calculate_rewards(self, obs, custom_obs, action):
-        # 하이퍼파라미터 (튜닝 필요)
+        # --- 하이퍼파라미터 (튜닝 필요) ---
         W_FORWARD = 1.5
         W_ALIVE = 0.1
         W_CTRL = -0.01
         W_STABILITY = -0.05
+        
         PREP_DIST = 2.5
         JUMP_DIST = 0.8
+        
         W_CROUCH = 4.0
         Z_CROUCH_TARGET = 0.9
         CROUCH_SIGMA = 0.1
+        
         W_CLEARANCE = 20.0
         CLEARANCE_MARGIN = 0.1
-        W_JUMP = 2.5
-        SUCCESS_BONUS = 50.0
         
-        # 관측값 분해 (인덱스 변경에 주의)
+        W_JUMP = 2.5
+        
+        # --- 보상 해킹 해결을 위한 새로운 파라미터 ---
+        # 1. 성공 판정을 위한 최소 높이
+        MIN_SUCCESS_HEIGHT = 1.2 
+        # 2. 전진 속도 페널티
+        MIN_VEL_X_PENALTY = -1.0 # 속도가 0.3보다 느려지면 페널티
+        MIN_VEL_X_THRESHOLD = 0.3
+        # 3. 성공 보너스
+        SUCCESS_BONUS = 50.0
+        # ------------------------------------------
+        
+        # 관측값 분해
         z_torso = obs[1]
         vel_x = obs[9]
         vel_z = obs[10]
         angvel_torso = obs[11]
-        dx, h, w = custom_obs[17], custom_obs[18], custom_obs[19] # obs 20개
+        dx, h, w = custom_obs[17], custom_obs[18], custom_obs[19]
         
-        # 보상 계산 로직은 이전과 동일하게 사용 가능
+        # 1. 기본 보상
         forward_reward = W_FORWARD * vel_x
         alive_bonus = W_ALIVE
         control_cost = W_CTRL * np.sum(np.square(action))
         stability_penalty = W_STABILITY * np.square(angvel_torso)
-        base_reward = forward_reward + alive_bonus + control_cost + stability_penalty
         
+        # --- 해결책 2: 전진 속도 페널티 추가 ---
+        velocity_penalty = 0
+        if vel_x < MIN_VEL_X_THRESHOLD:
+            velocity_penalty = MIN_VEL_X_PENALTY
+        # ------------------------------------
+
+        base_reward = forward_reward + alive_bonus + control_cost + stability_penalty + velocity_penalty
+        
+        # 2. 보상 쉐이핑 (이전과 동일)
         shaping_reward = 0.0
         if dx >= 0:
             if JUMP_DIST < dx <= PREP_DIST:
@@ -145,15 +166,75 @@ class CustomEnvWrapper(gym.Wrapper):
                 jump_reward = W_JUMP * vel_z
                 shaping_reward += clearance_reward + jump_reward
                 
+        # 3. 성공 보너스
         success_bonus = 0.0
         _, _, _, next_bump_x = self._next_bump_info()
         
-        if self.current_bump_target_x > 0 and self.current_bump_target_x != next_bump_x:
+        # --- 해결책 1: 성공 판정 조건 강화 ---
+        # 목표로 하던 bump를 지나쳤고(x좌표 조건) AND 그 순간 몸통이 충분히 높다면(z좌표 조건) 성공!
+        if self.current_bump_target_x > 0 and self.current_bump_target_x != next_bump_x and z_torso > MIN_SUCCESS_HEIGHT:
             success_bonus = SUCCESS_BONUS
             self.cleared_bumps_count += 1
+        # ------------------------------------
             
         self.current_bump_target_x = next_bump_x
 
         total_reward = base_reward + shaping_reward + success_bonus
         return total_reward, success_bonus
+
+
+    ###### 현재까지 Best #######
+    # def _calculate_rewards(self, obs, custom_obs, action):
+    #     # 하이퍼파라미터 (튜닝 필요)
+    #     W_FORWARD = 1.5
+    #     W_ALIVE = 0.1
+    #     W_CTRL = -0.01
+    #     W_STABILITY = -0.05
+    #     PREP_DIST = 2.5
+    #     JUMP_DIST = 0.8
+    #     W_CROUCH = 4.0
+    #     Z_CROUCH_TARGET = 0.9
+    #     CROUCH_SIGMA = 0.1
+    #     W_CLEARANCE = 20.0
+    #     CLEARANCE_MARGIN = 0.1
+    #     W_JUMP = 2.5
+    #     SUCCESS_BONUS = 50.0
+        
+    #     # 관측값 분해 (인덱스 변경에 주의)
+    #     z_torso = obs[1]
+    #     vel_x = obs[9]
+    #     vel_z = obs[10]
+    #     angvel_torso = obs[11]
+    #     dx, h, w = custom_obs[17], custom_obs[18], custom_obs[19] # obs 20개
+        
+    #     # 보상 계산 로직은 이전과 동일하게 사용 가능
+    #     forward_reward = W_FORWARD * vel_x
+    #     alive_bonus = W_ALIVE
+    #     control_cost = W_CTRL * np.sum(np.square(action))
+    #     stability_penalty = W_STABILITY * np.square(angvel_torso)
+    #     base_reward = forward_reward + alive_bonus + control_cost + stability_penalty
+        
+    #     shaping_reward = 0.0
+    #     if dx >= 0:
+    #         if JUMP_DIST < dx <= PREP_DIST:
+    #             crouch_reward = W_CROUCH * np.exp(-((z_torso - Z_CROUCH_TARGET)**2) / (2 * CROUCH_SIGMA**2))
+    #             shaping_reward += crouch_reward
+            
+    #         elif 0 <= dx <= JUMP_DIST:
+    #             clearance_target = h * 2 + CLEARANCE_MARGIN
+    #             clearance_reward = W_CLEARANCE * max(0, z_torso - clearance_target)
+    #             jump_reward = W_JUMP * vel_z
+    #             shaping_reward += clearance_reward + jump_reward
+                
+    #     success_bonus = 0.0
+    #     _, _, _, next_bump_x = self._next_bump_info()
+        
+    #     if self.current_bump_target_x > 0 and self.current_bump_target_x != next_bump_x:
+    #         success_bonus = SUCCESS_BONUS
+    #         self.cleared_bumps_count += 1
+            
+    #     self.current_bump_target_x = next_bump_x
+
+    #     total_reward = base_reward + shaping_reward + success_bonus
+    #     return total_reward, success_bonus
 

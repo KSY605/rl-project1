@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import os  
 from stable_baselines3 import PPO
-from custom_walker2d import CustomEnvWrapper
+from DS2_TEAM9_PRJ_RL.custom_walker2d import CustomEnvWrapper
 import gymnasium as gym
 
 parser = argparse.ArgumentParser()
