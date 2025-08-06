@@ -49,14 +49,14 @@ def transfer_weights(pretrained_params, new_model_params):
 
 if __name__ == "__main__":
     # --- 설정 (필요시 수정) ---
-    N_ENVS = 4
+    N_ENVS = 6
     LOG_INTERVAL = 1
     
     parser = argparse.ArgumentParser(description="Fine-tuning Walker2D for Bumps")
     parser.add_argument("--pretrained-model", type=str, required=True, help="잘 걷는 pre-trained 모델의 경로. (예: ./models/walker_flat.zip)")
     args = parser.parse_args()
 
-    folder_name = "walker_finetuned_v7"
+    folder_name = "walker_finetuned_v7_based_v3"
     log_dir = f"./logs/{folder_name}/"
     save_path = f'./checkpoints/{folder_name}/'
     os.makedirs(log_dir, exist_ok=True)
